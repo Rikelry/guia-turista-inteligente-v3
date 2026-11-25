@@ -1,5 +1,25 @@
 """
-Fixtures do pytest: TestClient, ambiente isolado e provedores externos simulados (sem internet).
+ATIVIDADE 07 :: V3 Sistema Viajante com N8N
+Fixtures do pytest e infraestrutura de testes da aplicação.
+
+Módulo: tests.conftest
+Parte da atividade: 01 - Fundação da arquitetura orientada a eventos.
+
+Responsabilidades:
+    - Fornecer TestClient para testes das rotas FastAPI.
+    - Isolar variáveis de ambiente e arquivos temporários.
+    - Simular provedores externos sem acesso à internet.
+    - Reinicializar caches, métricas e circuit breakers.
+    - Preparar sessões de usuários para os testes.
+
+Alterações da Parte 01:
+    - Inclusão das variáveis de ambiente da integração com n8n
+      no isolamento dos testes:
+      N8N_WEBHOOK_URL, N8N_WEBHOOK_SECRET e N8N_TIMEOUT_SEGUNDOS.
+
+Observação:
+    As fixtures são compartilhadas automaticamente entre os módulos
+    de teste pelo pytest.
 """
 
 import math
@@ -130,7 +150,21 @@ def provedores_simulados(request: httpx.Request) -> httpx.Response:
 
 @pytest.fixture(autouse=True)
 def ambiente_isolado(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
-    """Cada teste roda sem ler o .env real, com estado limpo e o JSON numa pasta temporária."""
+    """
+    Isola o ambiente de cada teste e prepara o estado inicial.
+
+    Parte 01:
+        Garante que as configurações da integração com n8n não sejam
+        herdadas do ambiente real durante a execução dos testes.
+
+    Args:
+        monkeypatch: Ferramenta de isolamento de ambiente do pytest.
+        tmp_path: Diretório temporário exclusivo do teste.
+
+    Yields:
+        None: Controle retorna ao teste com o ambiente preparado.
+    """
+
     monkeypatch.chdir(tmp_path)
     for var in (
         "GOOGLE_CLIENT_ID",

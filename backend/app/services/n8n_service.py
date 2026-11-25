@@ -1,5 +1,25 @@
 """
-Serviço de integração HTTP com os webhooks do n8n.
+ATIVIDADE 07 :: V3 Sistema Viajante com N8N
+Cliente HTTP para comunicação com os webhooks do n8n.
+
+Módulo: app.services.n8n_service
+Parte da atividade: 01 - Fundação da arquitetura orientada a eventos.
+
+Responsabilidades:
+    - Centralizar o envio de eventos ao n8n.
+    - Autenticar requisições por meio de segredo compartilhado.
+    - Propagar o identificador de correlação X-Request-ID.
+    - Serializar eventos no formato JSON.
+    - Respeitar o timeout configurado na aplicação.
+
+Dependências:
+    - httpx: comunicação HTTP assíncrona.
+    - EventoIntegracao: contrato padronizado dos eventos.
+    - Settings: configurações da integração.
+
+Segurança:
+    O segredo de autenticação é enviado exclusivamente no cabeçalho
+    X-N8N-Webhook-Secret e não deve ser registrado nos logs.
 """
 
 import logging
@@ -18,7 +38,17 @@ async def enviar_evento(
     evento: EventoIntegracao,
 ) -> None:
     """
-    Envia um evento JSON para um webhook do n8n.
+    Envia um evento padronizado para um webhook do n8n.
+
+    Args:
+        client: Cliente HTTP assíncrono compartilhado pela aplicação.
+        webhook: Nome ou caminho do webhook de destino.
+        evento: Envelope contendo UUID, tipo, origem, dados e request_id.
+
+    Raises:
+        RuntimeError: Quando a URL ou o segredo do n8n não estiver configurado.
+        ValueError: Quando o nome do webhook estiver vazio.
+        httpx.HTTPError: Quando ocorrer uma falha na comunicação HTTP.
     """
 
     config = obter_settings()

@@ -1,5 +1,28 @@
 """
-Testes da integração HTTP com os webhooks do n8n.
+ATIVIDADE 07 :: V3 Sistema Viajante com N8N
+Testes automatizados do cliente HTTP de integração com o n8n.
+
+Módulo: tests.test_n8n_service
+Parte da atividade: 01 - Fundação da arquitetura orientada a eventos.
+
+Objetivos:
+    - Verificar o envio correto de eventos JSON.
+    - Validar a URL de destino e os cabeçalhos de autenticação.
+    - Garantir a propagação do X-Request-ID.
+    - Verificar o comportamento quando faltam configurações.
+    - Confirmar a propagação de erros HTTP retornados pelo n8n.
+    - Rejeitar nomes de webhook vazios.
+
+Estratégia de testes:
+    - Utilização de httpx.MockTransport.
+    - Simulação das respostas HTTP sem acesso à internet.
+    - Isolamento das configurações por meio do monkeypatch.
+
+Dependências:
+    - pytest: execução dos testes.
+    - httpx: simulação das requisições HTTP.
+    - EventoIntegracao: contrato utilizado nos testes.
+    - enviar_evento: serviço submetido à validação.
 """
 
 import asyncio

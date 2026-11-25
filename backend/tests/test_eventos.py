@@ -1,3 +1,24 @@
+"""
+ATIVIDADE 07 :: V3 Sistema Viajante com N8N
+Testes unitários do contrato de eventos de integração.
+
+Módulo: tests.test_eventos
+Parte da atividade: 01 - Fundação da arquitetura orientada a eventos.
+
+Objetivos:
+    - Verificar a geração automática de UUID.
+    - Garantir identificadores únicos por evento.
+    - Validar a data de ocorrência em UTC.
+    - Rejeitar campos não previstos no contrato.
+    - Exigir identificadores de correlação.
+    - Validar o padrão dominio.recurso.acao do event_type.
+
+Dependências:
+    - pytest: execução e parametrização dos testes.
+    - Pydantic: validação dos contratos de dados.
+    - EventoIntegracao: schema submetido aos testes.
+"""
+
 from datetime import UTC
 from uuid import UUID
 
