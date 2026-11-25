@@ -3,12 +3,14 @@ Testes da integração HTTP com os webhooks do n8n.
 """
 
 import asyncio
+import json
 
 import httpx
 import pytest
 
 from app.core.config import obter_settings
 from app.services.n8n_service import enviar_evento
+from app.schemas.eventos import EventoIntegracao
 
 
 def test_enviar_evento_com_sucesso(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -23,6 +25,12 @@ def test_enviar_evento_com_sucesso(monkeypatch: pytest.MonkeyPatch) -> None:
         requisicoes.append(request)
         return httpx.Response(200, json={"status": "recebido"})
 
+    evento = EventoIntegracao(
+        event_type="turismo.dlq.incidente",
+        request_id="abc-123",
+        data={"mensagem": "Falha de teste"},
+    )
+
     async def executar() -> None:
         transport = httpx.MockTransport(responder)
 
@@ -30,8 +38,7 @@ def test_enviar_evento_com_sucesso(monkeypatch: pytest.MonkeyPatch) -> None:
             await enviar_evento(
                 client=client,
                 webhook="turismo-dlq",
-                evento={"tipo": "incidente", "mensagem": "Falha de teste"},
-                request_id="abc-123",
+                evento=evento,
             )
 
     try:
@@ -45,7 +52,9 @@ def test_enviar_evento_com_sucesso(monkeypatch: pytest.MonkeyPatch) -> None:
     assert str(request.url) == "https://n8n.exemplo.com/webhook/turismo-dlq"
     assert request.headers["X-N8N-Webhook-Secret"] == "segredo-teste"
     assert request.headers["X-Request-ID"] == "abc-123"
-    assert request.read() == b'{"tipo":"incidente","mensagem":"Falha de teste"}'
+    corpo_enviado = json.loads(request.read())
+
+    assert corpo_enviado == evento.model_dump(mode="json")
 
 
 @pytest.mark.parametrize(
@@ -71,8 +80,11 @@ def test_recusa_envio_sem_configuracao(
                 await enviar_evento(
                     client=client,
                     webhook="turismo-dlq",
-                    evento={"tipo": "teste"},
-                    request_id="abc-123",
+                    evento=EventoIntegracao(
+                        event_type="turismo.dlq.incidente",
+                        request_id="abc-123",
+                        data={"mensagem": "Falha de teste"},
+                    ),
                 )
 
     try:
@@ -97,8 +109,11 @@ def test_propaga_falha_http_do_n8n(monkeypatch: pytest.MonkeyPatch) -> None:
                 await enviar_evento(
                     client=client,
                     webhook="turismo-dlq",
-                    evento={"tipo": "teste"},
-                    request_id="abc-123",
+                    evento=EventoIntegracao(
+                        event_type="turismo.dlq.incidente",
+                        request_id="abc-123",
+                        data={"mensagem": "Falha de teste"},
+                    ),
                 )
 
     try:
@@ -118,8 +133,11 @@ def test_recusa_nome_de_webhook_vazio(monkeypatch: pytest.MonkeyPatch) -> None:
                 await enviar_evento(
                     client=client,
                     webhook=" / ",
-                    evento={"tipo": "teste"},
-                    request_id="abc-123",
+                    evento=EventoIntegracao(
+                        event_type="turismo.dlq.incidente",
+                        request_id="abc-123",
+                        data={"mensagem": "Falha de teste"},
+                    ),
                 )
 
     try:

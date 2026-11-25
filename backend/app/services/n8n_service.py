@@ -7,6 +7,7 @@ import logging
 import httpx
 
 from app.core.config import obter_settings
+from app.schemas.eventos import EventoIntegracao
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +15,7 @@ logger = logging.getLogger(__name__)
 async def enviar_evento(
     client: httpx.AsyncClient,
     webhook: str,
-    evento: dict[str, object],
-    request_id: str,
+    evento: EventoIntegracao,
 ) -> None:
     """
     Envia um evento JSON para um webhook do n8n.
@@ -39,18 +39,18 @@ async def enviar_evento(
 
     headers = {
         "X-N8N-Webhook-Secret": config.n8n_webhook_secret,
-        "X-Request-ID": request_id,
+        "X-Request-ID": str(evento.request_id),
     }
 
     logger.info(
         "Enviando evento ao n8n. webhook=%s request_id=%s",
         webhook_nome,
-        request_id,
+        evento.request_id,
     )
 
     resposta = await client.post(
         url,
-        json=evento,
+        json=evento.model_dump(mode="json"),
         headers=headers,
         timeout=config.n8n_timeout_segundos,
     )
