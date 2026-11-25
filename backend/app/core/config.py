@@ -1,4 +1,6 @@
-"""Configurações do servidor com Pydantic-Settings: variáveis de ambiente, .env e CORS."""
+"""
+Configurações do servidor com Pydantic-Settings: variáveis de ambiente, .env e CORS.
+"""
 
 import json
 from functools import lru_cache
@@ -25,6 +27,11 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     gemini_api_key: str = ""
     gemini_modelo: str = "gemini-3.6-flash"
+
+    # Integração com o n8n
+    n8n_webhook_url: str = ""
+    n8n_webhook_secret: str = ""
+    n8n_timeout_segundos: float = Field(default=5.0, gt=0, le=30)
 
     # Origens da SPA liberadas no CORS. No .env: CORS_ORIGINS=http://localhost:5173,http://localhost:3000
     cors_origins: Annotated[list[str], NoDecode] = Field(
@@ -59,7 +66,12 @@ class Settings(BaseSettings):
             return [origem.strip().rstrip("/") for origem in valor.split(",") if origem.strip()]
         return valor
 
-    @field_validator("google_client_id", "gemini_api_key")
+    @field_validator(
+        "google_client_id",
+        "gemini_api_key",
+        "n8n_webhook_url",
+        "n8n_webhook_secret",
+    )
     @classmethod
     def remover_espacos(cls, valor: str) -> str:
         return valor.strip()

@@ -1,4 +1,6 @@
-"""Fixtures do pytest: TestClient, ambiente isolado e provedores externos simulados (sem internet)."""
+"""
+Fixtures do pytest: TestClient, ambiente isolado e provedores externos simulados (sem internet).
+"""
 
 import math
 from collections.abc import Callable, Iterator
@@ -130,7 +132,15 @@ def provedores_simulados(request: httpx.Request) -> httpx.Response:
 def ambiente_isolado(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
     """Cada teste roda sem ler o .env real, com estado limpo e o JSON numa pasta temporária."""
     monkeypatch.chdir(tmp_path)
-    for var in ("GOOGLE_CLIENT_ID", "GEMINI_API_KEY", "CORS_ORIGINS", "VISITANTE_TTL_HORAS"):
+    for var in (
+        "GOOGLE_CLIENT_ID",
+        "GEMINI_API_KEY",
+        "CORS_ORIGINS",
+        "VISITANTE_TTL_HORAS",
+        "N8N_WEBHOOK_URL",
+        "N8N_WEBHOOK_SECRET",
+        "N8N_TIMEOUT_SEGUNDOS",
+    ):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("GOOGLE_CLIENT_ID", CLIENT_ID_TESTE)
     monkeypatch.setenv("VIAGENS_ARQUIVO", str(tmp_path / "viagens.json"))
