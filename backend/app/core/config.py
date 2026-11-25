@@ -1,4 +1,21 @@
-"""Configurações do servidor com Pydantic-Settings: variáveis de ambiente, .env e CORS."""
+"""
+ATIVIDADE 07 :: V3 Sistema Viajante com N8N
+Configurações da aplicação com Pydantic Settings.
+
+Módulo: app.core.config
+Parte da atividade: 01 - Fundação da arquitetura orientada a eventos.
+
+Responsabilidades:
+    - Carregar configurações de variáveis de ambiente e arquivo .env.
+    - Configurar provedores externos, autenticação e CORS.
+    - Centralizar parâmetros de timeout e circuit breaker.
+    - Disponibilizar as configurações da integração com o n8n.
+
+Integração n8n:
+    N8N_WEBHOOK_URL: endereço-base dos webhooks.
+    N8N_WEBHOOK_SECRET: segredo de autenticação.
+    N8N_TIMEOUT_SEGUNDOS: timeout das requisições.
+"""
 
 import json
 from functools import lru_cache
@@ -25,6 +42,11 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     gemini_api_key: str = ""
     gemini_modelo: str = "gemini-3.6-flash"
+
+    # Parte 01: parâmetros de comunicação autenticada com o n8n.
+    n8n_webhook_url: str = ""
+    n8n_webhook_secret: str = ""
+    n8n_timeout_segundos: float = Field(default=5.0, gt=0, le=30)
 
     # Origens da SPA liberadas no CORS. No .env: CORS_ORIGINS=http://localhost:5173,http://localhost:3000
     cors_origins: Annotated[list[str], NoDecode] = Field(
@@ -59,7 +81,12 @@ class Settings(BaseSettings):
             return [origem.strip().rstrip("/") for origem in valor.split(",") if origem.strip()]
         return valor
 
-    @field_validator("google_client_id", "gemini_api_key")
+    @field_validator(
+        "google_client_id",
+        "gemini_api_key",
+        "n8n_webhook_url",
+        "n8n_webhook_secret",
+    )
     @classmethod
     def remover_espacos(cls, valor: str) -> str:
         return valor.strip()
