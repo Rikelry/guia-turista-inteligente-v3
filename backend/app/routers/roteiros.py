@@ -1,9 +1,26 @@
-"""/api/v1/roteiros: planejamento concorrente, mapa com alternativas, guia em streaming,
-custos, exportação GPX, histórico, visitas e compartilhamento."""
+"""
+ATIVIDADE 07 :: V3 Sistema Viajante com N8N
+Rotas de planejamento, consulta e compartilhamento de roteiros.
+
+Módulo: app.routers.roteiros
+
+Responsabilidades:
+    - Planejar roteiros com execução concorrente de provedores.
+    - Disponibilizar mapas, alternativas, clima e guias de viagem.
+    - Gerenciar histórico, visitas, custos e compartilhamento.
+    - Registrar falhas inesperadas na DLQ em segundo plano.
+    - Preservar a rastreabilidade por meio do request_id.
+
+Integrações:
+    - FastAPI BackgroundTasks para tarefas em segundo plano.
+    - DLQ local para persistência de falhas.
+    - n8n para despacho de alertas técnicos.
+"""
 
 import asyncio
 import logging
 import time
+import traceback
 from collections.abc import Awaitable
 from datetime import UTC, datetime
 from typing import Any
@@ -11,12 +28,15 @@ from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.core.catalogo import DESTINOS, atrativos_do_destino, slug
 from app.core.circuit_breaker import obter_breaker
 from app.core.dependencies import HttpClient, UsuarioAtivo
 from app.core.metricas import metricas
+from app.core.logging_config import request_id_atual
+
+from app.schemas.dlq import RegistroFalhaDLQ
 from app.schemas.auth import UsuarioPerfil
 from app.schemas.roteiros import (
     AltimetriaInfo,
@@ -36,7 +56,12 @@ from app.schemas.roteiros import (
     RoteiroResponse,
     VisitaUpdate,
 )
-from app.services import storage_service
+
+from app.services.custos_service import calcular_custos
+from app.services.gemini_service import eventos_sse_guia, gerar_guia_ia_async
+from app.services.gpx_service import gerar_gpx, nome_arquivo_gpx
+from app.services.postos_service import calcular_paradas
+from app.services import incidentes_service, storage_service
 from app.services.altimetria_service import (
     altimetria_fallback,
     montar_altimetria,
@@ -48,10 +73,6 @@ from app.services.clima_service import (
     local_fallback,
     obter_clima_async,
 )
-from app.services.custos_service import calcular_custos
-from app.services.gemini_service import eventos_sse_guia, gerar_guia_ia_async
-from app.services.gpx_service import gerar_gpx, nome_arquivo_gpx
-from app.services.postos_service import calcular_paradas
 from app.services.rota_service import (
     RotaCalculada,
     SemRotaRodoviaria,
@@ -152,6 +173,11 @@ async def consultar_altimetria(
     "/planejar",
     response_model=RoteiroResponse,
     summary="Planeja o roteiro (orquestração concorrente)",
+    responses={
+        500: {
+            "description": "Falha inesperada no planejamento do roteiro."
+        }
+    },
 )
 async def planejar_roteiro(
     payload: RoteiroRequest,
@@ -159,7 +185,7 @@ async def planejar_roteiro(
     background_tasks: BackgroundTasks,
     client: HttpClient,
     usuario: UsuarioAtivo,
-) -> RoteiroResponse:
+) -> RoteiroResponse | JSONResponse:
     chave_requisicao = (
         f"{usuario.user_id}:{payload.origem_cidade}_{payload.origem_uf}"
         f"->{payload.destino_cidade}_{payload.destino_uf}"
@@ -208,6 +234,50 @@ async def planejar_roteiro(
             )
         )
         await _abortar_se_desconectado(request)
+
+    except HTTPException:
+        # Cancelamentos e erros HTTP esperados não são incidentes técnicos.
+        raise
+
+    except Exception as exc:
+        # Captura o identificador antes de o middleware encerrar o contexto.
+        request_id = request_id_atual.get()
+        if request_id == "-":
+            request_id = uuid4().hex
+
+        registro = RegistroFalhaDLQ(
+            event_type="turismo.roteiro.processar",
+            request_id=request_id,
+            error=str(exc)[:2000] or type(exc).__name__,
+            stack_trace=traceback.format_exc(),
+            payload={
+                "origem_cidade": payload.origem_cidade,
+                "origem_uf": payload.origem_uf,
+                "destino_cidade": payload.destino_cidade,
+                "destino_uf": payload.destino_uf,
+                "dias_estadia": payload.dias_estadia,
+                "estilo_viagem": payload.estilo_viagem,
+            },
+        )
+
+        background_tasks.add_task(
+            incidentes_service.registrar_e_despachar_incidente,
+            client,
+            registro,
+        )
+
+        logger.exception(
+            "Falha inesperada no planejamento. Registro na DLQ agendado. "
+            "request_id=%s",
+            request_id,
+        )
+
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Não foi possível gerar o roteiro no momento."},
+            background=background_tasks,
+        )
+
     finally:
         async with lock_requisicoes:
             REQUISICOES_ATIVAS.discard(chave_requisicao)
