@@ -3,13 +3,22 @@ ATIVIDADE 07 :: V3 Sistema Viajante com N8N
 Configurações da aplicação com Pydantic Settings.
 
 Módulo: app.core.config
-Parte da atividade: 01 - Fundação da arquitetura orientada a eventos.
+Parte da atividade: 01 e 02 - Fundação de eventos e DLQ.
 
 Responsabilidades:
     - Carregar configurações de variáveis de ambiente e arquivo .env.
     - Configurar provedores externos, autenticação e CORS.
     - Centralizar parâmetros de timeout e circuit breaker.
     - Disponibilizar as configurações da integração com o n8n.
+    - Configurar o caminho de persistência dos incidentes da DLQ.
+
+Alterações da Parte 01:
+    - Inclusão das configurações de comunicação autenticada com o n8n:
+      N8N_WEBHOOK_URL, N8N_WEBHOOK_SECRET e N8N_TIMEOUT_SEGUNDOS.
+
+Alterações da Parte 02:
+    - Inclusão da configuração DLQ_ARQUIVO para persistência
+      independente dos incidentes da Dead Letter Queue.
 
 Integração n8n:
     N8N_WEBHOOK_URL: endereço-base dos webhooks.
@@ -72,6 +81,10 @@ class Settings(BaseSettings):
 
     # Persistência das viagens de usuários Google (visitantes ficam só em memória)
     viagens_arquivo: Path = DATA_DIR / "viagens.json"
+
+    # Parte 02: caminho configurável para persistência independente da DLQ.
+    # Pode ser sobrescrito pela variável de ambiente DLQ_ARQUIVO.
+    dlq_arquivo: Path = DATA_DIR / "dlq.json"
 
     @field_validator("cors_origins", mode="before")
     @classmethod
