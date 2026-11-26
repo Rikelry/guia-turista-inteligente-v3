@@ -3,7 +3,7 @@ ATIVIDADE 07 :: V3 Sistema Viajante com N8N
 Fixtures do pytest e infraestrutura de testes da aplicação.
 
 Módulo: tests.conftest
-Parte da atividade: 01 - Fundação da arquitetura orientada a eventos.
+Parte da atividade: 01 e 02 - Fundação de eventos e DLQ.
 
 Responsabilidades:
     - Fornecer TestClient para testes das rotas FastAPI.
@@ -11,11 +11,16 @@ Responsabilidades:
     - Simular provedores externos sem acesso à internet.
     - Reinicializar caches, métricas e circuit breakers.
     - Preparar sessões de usuários para os testes.
+    - Isolar o arquivo de persistência da DLQ em diretório temporário.
 
 Alterações da Parte 01:
     - Inclusão das variáveis de ambiente da integração com n8n
       no isolamento dos testes:
       N8N_WEBHOOK_URL, N8N_WEBHOOK_SECRET e N8N_TIMEOUT_SEGUNDOS.
+
+Alterações da Parte 02:
+    - Inclusão da variável DLQ_ARQUIVO no isolamento do ambiente.
+    - Configuração de arquivo temporário independente para cada teste.
 
 Observação:
     As fixtures são compartilhadas automaticamente entre os módulos
@@ -174,10 +179,12 @@ def ambiente_isolado(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterato
         "N8N_WEBHOOK_URL",
         "N8N_WEBHOOK_SECRET",
         "N8N_TIMEOUT_SEGUNDOS",
+        "DLQ_ARQUIVO",
     ):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("GOOGLE_CLIENT_ID", CLIENT_ID_TESTE)
     monkeypatch.setenv("VIAGENS_ARQUIVO", str(tmp_path / "viagens.json"))
+    monkeypatch.setenv("DLQ_ARQUIVO", str(tmp_path / "dlq.json"))
     obter_settings.cache_clear()
     cache.limpar()
     resetar_breakers()
