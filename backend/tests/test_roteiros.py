@@ -1,8 +1,27 @@
-"""Suíte de /api/v1/roteiros e /api/v1/telemetria: concorrência, validação, rotas, altimetria,
-custos, streaming SSE, GPX, histórico e métricas. Provedores simulados no conftest."""
+"""
+ATIVIDADE 07 :: V3 Sistema Viajante com N8N
+Testes das rotas de roteiros e telemetria.
+
+Módulo: tests.test_roteiros
+Parte da atividade: 02 - DLQ e alertas de incidentes no Telegram.
+
+Responsabilidades:
+    - Validar o planejamento e compartilhamento de roteiros.
+    - Verificar concorrência e tratamento de erros.
+    - Testar integração com provedores externos simulados.
+    - Validar o registro de falhas inesperadas na DLQ.
+    - Garantir a preservação do request_id e do stack trace.
+    - Verificar que erros HTTP esperados não geram incidentes.
+
+Dependências:
+    - pytest: execução dos testes.
+    - FastAPI TestClient: simulação das requisições HTTP.
+    - Provedores simulados: isolamento de serviços externos.
+"""
 
 import asyncio
 import json
+from collections.abc import Generator
 from xml.etree import ElementTree as ET
 
 import httpx
@@ -52,6 +71,52 @@ def test_planejar_orquestra_os_provedores(client: TestClient, visitante: dict[st
 
 def test_planejar_exige_sessao(client: TestClient) -> None:
     assert client.post(PLANEJAR, json=ROTEIRO_PADRAO).status_code == 401
+
+
+def test_planejar_registra_falha_na_dlq_em_background(
+    client: TestClient,
+    visitante: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Preserva o erro HTTP e agenda o incidente com o request_id original."""
+
+    request_id = "teste-dlq-123"
+    capturados = []
+
+    async def falhar_geocodificacao(*args, **kwargs):
+        raise RuntimeError("Falha simulada na geocodificação.")
+
+    async def capturar_incidente(client_http, registro):
+        capturados.append(registro)
+
+    monkeypatch.setattr(roteiros, "geocodificar", falhar_geocodificacao)
+    monkeypatch.setattr(
+        roteiros.incidentes_service,
+        "registrar_e_despachar_incidente",
+        capturar_incidente,
+    )
+
+    resposta = client.post(
+        PLANEJAR,
+        json=ROTEIRO_PADRAO,
+        headers={**visitante, "X-Request-ID": request_id},
+    )
+
+    assert resposta.status_code == 500
+    assert resposta.json()["detail"] == (
+        "Não foi possível gerar o roteiro no momento."
+    )
+
+    assert len(capturados) == 1
+
+    registro = capturados[0]
+    assert registro.event_type == "turismo.roteiro.processar"
+    assert registro.request_id == request_id
+    assert "Falha simulada" in registro.error
+    assert registro.stack_trace
+    assert registro.payload["origem_cidade"] == "Teresina"
+
+    assert not roteiros.REQUISICOES_ATIVAS
 
 
 @pytest.mark.parametrize(
@@ -143,7 +208,7 @@ def test_planejar_com_provedores_fora_do_ar_degrada_sem_erro(
 
 
 @pytest.fixture
-def visitante_fora_do_ar() -> tuple[TestClient, dict[str, str]]:
+def visitante_fora_do_ar() -> Generator[tuple[TestClient, dict[str, str]], None, None]:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.host == "oauth2.googleapis.com":
             return provedores_simulados(request)
@@ -465,3 +530,35 @@ def test_metrics_no_formato_prometheus(client: TestClient, visitante: dict[str, 
     assert "guia_roteiros_gerados_total 1" in texto
     assert 'guia_circuit_breaker_aberto{provedor="rota"} 0' in texto
     assert 'guia_sessoes_ativas{tipo="visitante"} 1' in texto
+
+
+def test_planejar_nao_registra_http_exception_na_dlq(
+    client: TestClient,
+    visitante: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Erros HTTP esperados preservam seu status e não geram incidentes."""
+
+    capturados = []
+
+    async def falhar_geocodificacao(*args, **kwargs):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=499, detail="Requisição cancelada.")
+
+    async def capturar_incidente(client_http, registro):
+        capturados.append(registro)
+
+    monkeypatch.setattr(roteiros, "geocodificar", falhar_geocodificacao)
+    monkeypatch.setattr(
+        roteiros.incidentes_service,
+        "registrar_e_despachar_incidente",
+        capturar_incidente,
+    )
+
+    resposta = planejar(client, visitante)
+
+    assert resposta.status_code == 499
+    assert resposta.json()["detail"] == "Requisição cancelada."
+    assert capturados == []
+    assert not roteiros.REQUISICOES_ATIVAS
