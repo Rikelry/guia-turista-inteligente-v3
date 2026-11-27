@@ -3,7 +3,7 @@ ATIVIDADE 07 :: V3 Sistema Viajante com N8N
 Configurações da aplicação com Pydantic Settings.
 
 Módulo: app.core.config
-Parte da atividade: 01 e 02 - Fundação de eventos e DLQ.
+Parte da atividade: 01, 02 e 03 - Fundação de eventos, DLQ e Telegram ChatOps.
 
 Responsabilidades:
     - Carregar configurações de variáveis de ambiente e arquivo .env.
@@ -11,6 +11,7 @@ Responsabilidades:
     - Centralizar parâmetros de timeout e circuit breaker.
     - Disponibilizar as configurações da integração com o n8n.
     - Configurar o caminho de persistência dos incidentes da DLQ.
+    - Configurar a chave de autenticação das operações administrativas.
 
 Alterações da Parte 01:
     - Inclusão das configurações de comunicação autenticada com o n8n:
@@ -19,6 +20,10 @@ Alterações da Parte 01:
 Alterações da Parte 02:
     - Inclusão da configuração DLQ_ARQUIVO para persistência
       independente dos incidentes da Dead Letter Queue.
+
+Alterações da Parte 03:
+    - Inclusão da configuração SUPPORT_API_KEY para autenticação
+      dos endpoints administrativos utilizados pelo Telegram ChatOps.
 
 Integração n8n:
     N8N_WEBHOOK_URL: endereço-base dos webhooks.
@@ -56,6 +61,9 @@ class Settings(BaseSettings):
     n8n_webhook_url: str = ""
     n8n_webhook_secret: str = ""
     n8n_timeout_segundos: float = Field(default=5.0, gt=0, le=30)
+
+    # Parte 03: autenticação das operações administrativas do ChatOps.
+    support_api_key: str = ""
 
     # Origens da SPA liberadas no CORS. No .env: CORS_ORIGINS=http://localhost:5173,http://localhost:3000
     cors_origins: Annotated[list[str], NoDecode] = Field(
@@ -99,6 +107,7 @@ class Settings(BaseSettings):
         "gemini_api_key",
         "n8n_webhook_url",
         "n8n_webhook_secret",
+        "support_api_key",
     )
     @classmethod
     def remover_espacos(cls, valor: str) -> str:
