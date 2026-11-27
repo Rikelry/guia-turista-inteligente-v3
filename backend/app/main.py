@@ -1,5 +1,24 @@
-"""Instância FastAPI: lifespan (pool httpx e sessões), CORS, Correlation-ID,
-X-Process-Time e probes de saúde."""
+"""
+ATIVIDADE 07 :: V3 Sistema Viajante com N8N
+Inicialização e configuração central da aplicação FastAPI.
+
+Módulo: app.main
+Parte da atividade: 03 - Telegram ChatOps.
+
+Responsabilidades:
+    - Inicializar e encerrar os recursos compartilhados da aplicação.
+    - Configurar logging, CORS e middlewares HTTP.
+    - Gerenciar o cliente HTTP e o registro de sessões.
+    - Registrar o horário de inicialização para cálculo do uptime.
+    - Registrar as rotas de autenticação, roteiros e telemetria.
+    - Disponibilizar os endpoints administrativos do Telegram ChatOps.
+    - Expor probes de saúde da aplicação.
+
+Observabilidade:
+    - Disponibiliza identificadores de requisição (X-Request-ID).
+    - Registra o tempo de processamento das requisições.
+    - Mantém a referência monotônica de inicialização do processo.
+"""
 
 import logging
 import time
@@ -15,7 +34,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import obter_settings
 from app.core.logging_config import configurar_logging, request_id_atual
 from app.core.metricas import metricas
-from app.routers import auth, roteiros, telemetria
+from app.routers import auth, roteiros, support, telemetria
 from app.services.sessao_service import RegistroSessoes
 
 logger = logging.getLogger(__name__)
@@ -29,6 +48,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Cria recursos compartilhados uma vez na subida e os fecha no desligamento."""
     configurar_logging()
     config = obter_settings()
+    app.state.inicio_monotonic = time.monotonic()
     app.state.http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(config.http_timeout_segundos),
         limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
@@ -91,6 +111,7 @@ def criar_app() -> FastAPI:
     app.include_router(roteiros.router)
     app.include_router(telemetria.router)
     app.include_router(telemetria.router_metrics)
+    app.include_router(support.router)
 
     @app.get("/healthz", tags=["Probes"], summary="Liveness: o processo está respondendo")
     async def healthz() -> dict[str, str]:
