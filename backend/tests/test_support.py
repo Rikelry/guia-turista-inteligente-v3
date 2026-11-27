@@ -121,3 +121,26 @@ def test_testardlq_com_chave_valida_deve_registrar_incidente(
     assert dados["status"] == "registrado"
     assert dados["incidente_id"]
     assert dados["request_id"]
+
+
+def test_endpoints_telemetria_sem_chave_devem_retornar_403(
+    client: TestClient,
+) -> None:
+    """Bloqueia acessos públicos aos endpoints de telemetria e métricas."""
+    endpoints = [
+        ("GET", "/api/v1/telemetria"),
+        ("GET", "/api/v1/telemetria/circuit-breakers"),
+        ("GET", "/api/v1/telemetria/auditoria"),
+        ("POST", "/api/v1/telemetria/auditoria"),
+        ("GET", "/metrics"),
+    ]
+
+    for metodo, caminho in endpoints:
+        resposta = client.request(
+            metodo,
+            caminho,
+            json={"acao": "teste"} if metodo == "POST" else None,
+        )
+        assert resposta.status_code == 403, (
+            f"Endpoint {metodo} {caminho} deveria bloquear acesso sem autenticação."
+        )
