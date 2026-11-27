@@ -2,39 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { GOOGLE_CLIENT_ID } from "../config.ts";
 import type { SessionTimerState } from "../hooks/useSessionTimer.ts";
 import type { UsuarioPerfil } from "../types/schemas.ts";
-
-interface GoogleCredentialResponse {
-  credential?: string;
-}
-
-interface GoogleAccountsId {
-  initialize: (config: {
-    client_id: string;
-    callback: (response: GoogleCredentialResponse) => void;
-    auto_select?: boolean;
-  }) => void;
-  renderButton: (
-    parent: HTMLElement,
-    options: {
-      theme?: "outline" | "filled_blue" | "filled_black";
-      size?: "large" | "medium" | "small";
-      text?: "signin_with" | "signup_with" | "continue_with";
-      shape?: "rectangular" | "pill";
-      width?: number;
-      locale?: string;
-    },
-  ) => void;
-}
-
-declare global {
-  interface Window {
-    google?: {
-      accounts?: {
-        id?: GoogleAccountsId;
-      };
-    };
-  }
-}
+import { GoogleSignInButton } from "./GoogleSignInButton.tsx";
 
 export interface HeaderProps {
   usuario: UsuarioPerfil | null;
@@ -48,6 +16,7 @@ export interface HeaderProps {
   onAlternarVisitante: () => Promise<void>;
   onVoltarParaGoogle: () => Promise<void>;
   onSairGoogle: () => Promise<void>;
+  onEncerrarSessao?: () => Promise<void>;
 }
 
 function primeiroNome(nome: string): string {
@@ -73,11 +42,10 @@ export function Header({
   onAlternarVisitante,
   onVoltarParaGoogle,
   onSairGoogle,
+  onEncerrarSessao,
 }: HeaderProps) {
   const [menuAberto, setMenuAberto] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const googleBtnRef = useRef<HTMLDivElement | null>(null);
-  const googleInitRef = useRef(false);
 
   useEffect(() => {
     const aoClicarFora = (event: MouseEvent): void => {
@@ -95,37 +63,6 @@ export function Header({
       document.removeEventListener("keydown", aoPressionarEsc);
     };
   }, []);
-
-  useEffect(() => {
-    if (!menuAberto || usuario?.tipo === "google") return;
-    if (!GOOGLE_CLIENT_ID || !googleBtnRef.current) return;
-
-    const gsi = window.google?.accounts?.id;
-    if (!gsi) return;
-
-    if (!googleInitRef.current) {
-      gsi.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: (res) => {
-          if (res.credential) {
-            setMenuAberto(false);
-            void onEntrarGoogle(res.credential);
-          }
-        },
-      });
-      googleInitRef.current = true;
-    }
-
-    googleBtnRef.current.innerHTML = "";
-    gsi.renderButton(googleBtnRef.current, {
-      theme: isDark ? "filled_black" : "outline",
-      size: "large",
-      text: "continue_with",
-      shape: "pill",
-      width: 260,
-      locale: "pt-BR",
-    });
-  }, [isDark, menuAberto, onEntrarGoogle, usuario?.tipo]);
 
   const isGoogle = usuario?.tipo === "google";
   const nomeCurto = usuario ? primeiroNome(usuario.nome) : "Visitante";
@@ -312,15 +249,37 @@ export function Header({
                     )}
 
                     {GOOGLE_CLIENT_ID ? (
-                      <div className="google-signin-container">
-                        <div ref={googleBtnRef} />
-                      </div>
+                      <GoogleSignInButton
+                        isDark={isDark}
+                        onCredential={(credential) => {
+                          setMenuAberto(false);
+                          void onEntrarGoogle(credential);
+                        }}
+                      />
                     ) : (
                       <p className="google-config-hint">
                         {googleLoginHabilitado
                           ? "Configure VITE_GOOGLE_CLIENT_ID no frontend/.env para habilitar o botão Google Sign-In."
                           : "Login com Google opcional: você pode planejar viagens livremente em Modo Visitante."}
                       </p>
+                    )}
+
+                    {onEncerrarSessao && (
+                      <>
+                        <div className="user-dropdown-divider" />
+                        <button
+                          type="button"
+                          className="dropdown-logout-btn"
+                          role="menuitem"
+                          onClick={() => {
+                            setMenuAberto(false);
+                            void onEncerrarSessao();
+                          }}
+                        >
+                          <span aria-hidden="true">🚪</span>
+                          <span>Encerrar sessão de visitante</span>
+                        </button>
+                      </>
                     )}
                   </div>
                 )}

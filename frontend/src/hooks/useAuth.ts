@@ -44,10 +44,12 @@ export interface UseAuthReturn {
   savedGoogleUser: UsuarioPerfil | null;
   sessionStartMs: number;
   carregandoAuth: boolean;
+  sessaoVerificada: boolean;
   entrarComGoogle: (credential: string) => Promise<void>;
   alternarParaVisitante: () => Promise<void>;
   voltarParaGoogle: () => Promise<void>;
   sairDaContaGoogle: () => Promise<void>;
+  encerrarSessao: () => Promise<void>;
   renovarVisitante: () => Promise<UsuarioPerfil>;
 }
 
@@ -59,6 +61,7 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
   );
   const [sessionStartMs, setSessionStartMs] = useState<number>(() => obterInicioSessaoSalvo());
   const [carregandoAuth, setCarregandoAuth] = useState<boolean>(true);
+  const [sessaoVerificada, setSessaoVerificada] = useState<boolean>(false);
   const usuarioRef = useRef<UsuarioPerfil | null>(usuario);
 
   useEffect(() => {
@@ -97,21 +100,26 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
             setSavedGoogleUser(validado);
           }
           setCarregandoAuth(false);
+          setSessaoVerificada(true);
           return;
         } catch {
-          // Sessão expirou no servidor ou reiniciou: se era visitante, cria novo visitante.
-          // Se era Google e servidor reiniciou, mantém salvo em savedGoogleUser e cria visitante.
+          // Sessão expirou no servidor ou ele reiniciou: volta para a tela de login.
+          // Se era Google, mantém em savedGoogleUser para restaurar em 1 clique.
+          if (!ativo) return;
           if (salvo.tipo === "google") {
             salvarGoogleUser(salvo);
             setSavedGoogleUser(salvo);
+          } else {
+            limparViagensVisitanteCache(salvo.user_id);
           }
+          salvarUsuarioAtivo(null);
+          setUsuario(null);
         }
       }
 
-      if (!ativo) return;
-      await iniciarNovaSessaoVisitante();
       if (ativo) {
         setCarregandoAuth(false);
+        setSessaoVerificada(true);
       }
     }
 
@@ -120,7 +128,7 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
     return () => {
       ativo = false;
     };
-  }, [iniciarNovaSessaoVisitante]);
+  }, []);
 
   useEffect(() => {
     const aoFecharJanela = (): void => {
@@ -234,23 +242,40 @@ export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
       }
       salvarGoogleUser(null);
       setSavedGoogleUser(null);
-      await iniciarNovaSessaoVisitante();
+      salvarUsuarioAtivo(null);
+      setUsuario(null);
       onModeSwitch?.();
-      onNotify?.("info", "Conta Google desconectada", "Você continua navegando em Modo Visitante.");
+      onNotify?.("info", "Conta Google desconectada", "Entre novamente para continuar planejando.");
     } finally {
       setCarregandoAuth(false);
     }
-  }, [iniciarNovaSessaoVisitante, onModeSwitch, onNotify, savedGoogleUser]);
+  }, [onModeSwitch, onNotify, savedGoogleUser]);
+
+  const encerrarSessao = useCallback(async (): Promise<void> => {
+    const atual = usuarioRef.current;
+    if (atual?.tipo === "visitante") {
+      limparViagensVisitanteCache(atual.user_id);
+      if (!atual.user_id.startsWith("visitante-local-")) {
+        void logoutApi(atual.user_id).catch(() => undefined);
+      }
+    }
+    salvarUsuarioAtivo(null);
+    setUsuario(null);
+    onModeSwitch?.();
+    onNotify?.("info", "Sessão encerrada", "Escolha como deseja entrar novamente.");
+  }, [onModeSwitch, onNotify]);
 
   return {
     usuario,
     savedGoogleUser,
     sessionStartMs,
     carregandoAuth,
+    sessaoVerificada,
     entrarComGoogle,
     alternarParaVisitante,
     voltarParaGoogle,
     sairDaContaGoogle,
+    encerrarSessao,
     renovarVisitante: iniciarNovaSessaoVisitante,
   };
 }

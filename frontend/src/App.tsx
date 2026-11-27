@@ -3,6 +3,7 @@ import { BotoesControleViagem } from "./components/BotoesControleViagem.tsx";
 import { Footer } from "./components/Footer.tsx";
 import { Header } from "./components/Header.tsx";
 import { HistoricoViagens } from "./components/HistoricoViagens.tsx";
+import { LoginScreen } from "./components/LoginScreen.tsx";
 import { MapaRota } from "./components/MapaRota.tsx";
 import { RoteiroForm } from "./components/RoteiroForm.tsx";
 import { RoteiroResult } from "./components/RoteiroResult.tsx";
@@ -65,6 +66,31 @@ export function App() {
 
   limparEstadoRef.current = viagem.limparEstadoAtual;
 
+  if (!auth.usuario) {
+    return (
+      <div className="app-shell">
+        {!auth.sessaoVerificada ? (
+          <main id="conteudo-principal" className="login-loading" aria-busy="true">
+            <p>Verificando sessão…</p>
+          </main>
+        ) : (
+          <LoginScreen
+            savedGoogleUser={auth.savedGoogleUser}
+            googleLoginHabilitado={viagem.readyz?.google_login ?? false}
+            carregando={auth.carregandoAuth}
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
+            onEntrarGoogle={auth.entrarComGoogle}
+            onEntrarVisitante={auth.alternarParaVisitante}
+            onVoltarParaGoogle={auth.voltarParaGoogle}
+          />
+        )}
+        <Footer />
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <a href="#conteudo-principal" className="skip-link">
@@ -83,6 +109,7 @@ export function App() {
         onAlternarVisitante={auth.alternarParaVisitante}
         onVoltarParaGoogle={auth.voltarParaGoogle}
         onSairGoogle={auth.sairDaContaGoogle}
+        onEncerrarSessao={auth.encerrarSessao}
       />
 
       <main id="conteudo-principal" className="dashboard-container">
