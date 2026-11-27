@@ -217,6 +217,14 @@ def client(transporte_http: Callable[[httpx.Request], httpx.Response]) -> Iterat
 
 
 @pytest.fixture
+def suporte_autorizado(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+    """Fornece autenticação administrativa fictícia para os testes."""
+    chave = "chave-correta"
+    monkeypatch.setattr(obter_settings(), "support_api_key", chave)
+    return {"X-Support-Key": chave}
+
+
+@pytest.fixture
 def token_longo(monkeypatch: pytest.MonkeyPatch) -> str:
     """Token simulado com tamanho de JWT real (o schema exige no mínimo 20 caracteres)."""
     token = "token-valido-" + "x" * 40
