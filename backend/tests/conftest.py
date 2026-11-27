@@ -3,7 +3,7 @@ ATIVIDADE 07 :: V3 Sistema Viajante com N8N
 Fixtures do pytest e infraestrutura de testes da aplicação.
 
 Módulo: tests.conftest
-Parte da atividade: 01 e 02 - Fundação de eventos e DLQ.
+Parte da atividade: 01, 02 e 03 - Fundação de eventos, DLQ e Telegram ChatOps.
 
 Responsabilidades:
     - Fornecer TestClient para testes das rotas FastAPI.
@@ -12,6 +12,7 @@ Responsabilidades:
     - Reinicializar caches, métricas e circuit breakers.
     - Preparar sessões de usuários para os testes.
     - Isolar o arquivo de persistência da DLQ em diretório temporário.
+    - Isolar variáveis de autenticação dos endpoints administrativos.
 
 Alterações da Parte 01:
     - Inclusão das variáveis de ambiente da integração com n8n
@@ -21,6 +22,10 @@ Alterações da Parte 01:
 Alterações da Parte 02:
     - Inclusão da variável DLQ_ARQUIVO no isolamento do ambiente.
     - Configuração de arquivo temporário independente para cada teste.
+
+Alterações da Parte 03:
+    - Inclusão da variável SUPPORT_API_KEY no isolamento do ambiente.
+    - Preparação do ambiente para testes de autenticação do Telegram ChatOps.
 
 Observação:
     As fixtures são compartilhadas automaticamente entre os módulos
@@ -179,6 +184,7 @@ def ambiente_isolado(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterato
         "N8N_WEBHOOK_URL",
         "N8N_WEBHOOK_SECRET",
         "N8N_TIMEOUT_SEGUNDOS",
+        "SUPPORT_API_KEY",
         "DLQ_ARQUIVO",
     ):
         monkeypatch.delenv(var, raising=False)
