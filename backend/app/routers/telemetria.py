@@ -7,20 +7,28 @@ from collections import deque
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from app.core.cache import cache
 from app.core.circuit_breaker import EstadoCircuito, todos_breakers
-from app.core.dependencies import Sessoes
+from app.core.dependencies import Sessoes, obter_suporte_autorizado
 from app.core.metricas import metricas
 from app.services.storage_service import contar_roteiros
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/telemetria", tags=["Telemetria"])
-router_metrics = APIRouter(tags=["Telemetria"])
+router = APIRouter(
+    prefix="/api/v1/telemetria",
+    tags=["Telemetria"],
+    dependencies=[Depends(obter_suporte_autorizado)],
+)
+
+router_metrics = APIRouter(
+    tags=["Telemetria"],
+    dependencies=[Depends(obter_suporte_autorizado)],
+)
 
 # Últimos eventos de auditoria recebidos (só em memória, para consulta rápida).
 AUDITORIA: deque[dict[str, Any]] = deque(maxlen=200)
