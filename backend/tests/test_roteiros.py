@@ -188,6 +188,7 @@ def test_planejar_concorrente_de_verdade_devolve_um_200_e_um_409() -> None:
 
 def test_planejar_com_provedores_fora_do_ar_degrada_sem_erro(
     visitante_fora_do_ar: TestClient,
+    suporte_autorizado: dict[str, str],
 ) -> None:
     client, headers = visitante_fora_do_ar
     for _ in range(4):  # abre os circuitos de clima e rota (limite de 3 falhas)
@@ -202,7 +203,11 @@ def test_planejar_com_provedores_fora_do_ar_degrada_sem_erro(
     assert roteiro["provedores"]["rota"]["fallback"] is True
 
     estados = {
-        b["nome"]: b["estado"] for b in client.get("/api/v1/telemetria/circuit-breakers").json()
+        b["nome"]: b["estado"]
+        for b in client.get(
+            "/api/v1/telemetria/circuit-breakers",
+            headers=suporte_autorizado,
+        ).json()
     }
     assert estados["rota"] == "aberto" and estados["clima"] == "aberto"
 
@@ -222,14 +227,22 @@ def visitante_fora_do_ar() -> Generator[tuple[TestClient, dict[str, str]], None,
         yield c, {"X-User-Id": uid}
 
 
-def test_ilha_sem_estrada_responde_sem_rota(client: TestClient, visitante: dict[str, str]) -> None:
+def test_ilha_sem_estrada_responde_sem_rota(
+    client: TestClient,
+    visitante: dict[str, str],
+    suporte_autorizado: dict[str, str],
+) -> None:
     r = planejar(client, visitante, destino_cidade="Fernando de Noronha", destino_uf="PE")
     assert r.status_code == 200
     assert r.json()["rota"]["disponivel"] is False
     assert "voos ou barcos" in r.json()["rota"]["resumo"]
     # Ilha não é falha do OSRM: o circuito continua fechado.
     estados = {
-        b["nome"]: b["estado"] for b in client.get("/api/v1/telemetria/circuit-breakers").json()
+        b["nome"]: b["estado"]
+        for b in client.get(
+            "/api/v1/telemetria/circuit-breakers",
+            headers=suporte_autorizado,
+        ).json()
     }
     assert estados["rota"] == "fechado"
 
@@ -502,28 +515,47 @@ def test_stream_guia_com_gemini_real_simulado(
 
 
 def test_telemetria_conta_roteiros_e_mostra_provedores(
-    client: TestClient, visitante: dict[str, str]
+    client: TestClient,
+    visitante: dict[str, str],
+    suporte_autorizado: dict[str, str],
 ) -> None:
     planejar(client, visitante)
-    t = client.get("/api/v1/telemetria").json()
+    t = client.get(
+        "/api/v1/telemetria",
+        headers=suporte_autorizado,
+    ).json()
     assert t["roteiros_gerados"] == 1 and t["total_roteiros_salvos"] == 1
     assert t["provedores_ativos"] == t["provedores_total"] == 5
     assert t["sessoes_ativas"]["visitante"] == 1
     assert t["latencia_media_ms"] is not None and "/api/v1/roteiros/planejar" in t["por_rota"]
 
 
-def test_auditoria_em_segundo_plano(client: TestClient) -> None:
+def test_auditoria_em_segundo_plano(
+    client: TestClient,
+    suporte_autorizado: dict[str, str],
+) -> None:
     r = client.post(
-        "/api/v1/telemetria/auditoria", json={"acao": "exportou_gpx", "detalhes": {"km": 612}}
+        "/api/v1/telemetria/auditoria",
+        json={"acao": "exportou_gpx", "detalhes": {"km": 612}},
+        headers=suporte_autorizado,
     )
     assert r.status_code == 202
-    eventos = client.get("/api/v1/telemetria/auditoria").json()
+
+    eventos = client.get(
+        "/api/v1/telemetria/auditoria",
+        headers=suporte_autorizado,
+    ).json()
+
     assert eventos[-1]["acao"] == "exportou_gpx" and "recebido_em" in eventos[-1]
 
 
-def test_metrics_no_formato_prometheus(client: TestClient, visitante: dict[str, str]) -> None:
+def test_metrics_no_formato_prometheus(
+    client: TestClient,
+    visitante: dict[str, str],
+    suporte_autorizado: dict[str, str],
+) -> None:
     planejar(client, visitante)
-    r = client.get("/metrics")
+    r = client.get("/metrics", headers=suporte_autorizado)
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/plain")
     texto = r.text
     assert "# TYPE guia_requisicoes_total counter" in texto
