@@ -3,13 +3,15 @@ ATIVIDADE 07 :: V3 Sistema Viajante com N8N
 Coordenação do registro e despacho de incidentes da DLQ.
 
 Módulo: app.services.incidentes_service
-Parte da atividade: 02 - DLQ e alertas no Telegram.
+Parte da atividade: 02 e 03 - DLQ, alertas e Telegram ChatOps.
 
 Responsabilidades:
     - Persistir falhas inesperadas na DLQ local.
     - Construir eventos padronizados para integração com o n8n.
     - Despachar alertas pelo webhook turismo-dlq.
     - Registrar falhas de comunicação sem perder o incidente local.
+    - Retornar o incidente persistido para identificação e rastreabilidade.
+    - Disponibilizar o resultado do registro para os endpoints administrativos.
 
 Segurança:
     - Não registra segredos de integração.
@@ -21,7 +23,7 @@ import logging
 
 import httpx
 
-from app.schemas.dlq import RegistroFalhaDLQ
+from app.schemas.dlq import IncidenteDLQ, RegistroFalhaDLQ
 from app.schemas.eventos import EventoIntegracao
 from app.services.dlq_service import registrar_incidente
 from app.services.n8n_service import enviar_evento
@@ -32,7 +34,7 @@ logger = logging.getLogger(__name__)
 async def registrar_e_despachar_incidente(
     client: httpx.AsyncClient,
     registro: RegistroFalhaDLQ,
-) -> None:
+) -> IncidenteDLQ:
     """
     Persiste um incidente e tenta despachá-lo ao n8n.
 
@@ -44,7 +46,7 @@ async def registrar_e_despachar_incidente(
         registro: Dados da falha, incluindo request_id e stack trace.
 
     Returns:
-        None.
+        IncidenteDLQ.
     """
 
     incidente = await registrar_incidente(registro)
@@ -72,3 +74,7 @@ async def registrar_e_despachar_incidente(
             incidente.id,
             incidente.request_id,
         )
+
+        return incidente
+
+    return incidente
