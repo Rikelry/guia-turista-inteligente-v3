@@ -8,6 +8,9 @@ __pycache__/
 .venv/
 .pytest_cache/
 
+# Persistência local da Dead Letter Queue
+backend/static/data/dlq.json
+
 # Variáveis de ambiente reais (chaves e segredos). Só o .env.example vai para o git.
 .env
 .env.*
