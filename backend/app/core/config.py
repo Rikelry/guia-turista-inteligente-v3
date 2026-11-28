@@ -77,11 +77,13 @@ class Settings(BaseSettings):
     clima_url: str = "https://api.open-meteo.com/v1/forecast"
     osrm_url: str = "https://router.project-osrm.org/route/v1/driving"
     elevacao_url: str = "https://api.open-elevation.com/api/v1/lookup"
+    anp_api_url: str = "https://revendedoresapi.anp.gov.br/v1/combustivel"
 
     # Timeouts por provedor (segundos)
     http_timeout_segundos: float = Field(default=4.0, gt=0, le=30)
     rota_timeout_segundos: float = Field(default=6.0, gt=0, le=30)
     gemini_timeout_segundos: float = Field(default=6.0, gt=0, le=60)
+    anp_timeout_segundos: float = Field(default=10.0, gt=0, le=60)
 
     # Circuit breaker: falhas seguidas até abrir e segundos até tentar de novo
     breaker_limite_falhas: int = Field(default=3, ge=1, le=20)
