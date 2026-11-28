@@ -5,7 +5,7 @@ Unprocessable Entity antes de chegar ao endpoint, sem código manual de checagem
 """
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -212,6 +212,26 @@ class Parada(BaseModel):
     nivel_chegada_pct: float
 
 
+class PostoCombustivel(BaseModel):
+    """Informações cadastrais e regulatórias de um posto da ANP."""
+
+    cnpj: str
+    razao_social: str
+    nome_fantasia: str | None = None
+    bandeira: str | None = None
+    endereco: str | None = None
+    municipio: str | None = None
+    uf: str
+    lat: Latitude
+    lon: Longitude
+    status_sigaf: str | None = None
+    validacao_geografica: str | None = None
+    data_publicacao: date | None = None
+    combustiveis: list[str] = Field(default_factory=list)
+    distancia_rota_km: float = Field(ge=0)
+    avaliacao: float | None = Field(default=None, ge=0, le=5)
+
+
 class AutonomiaInfo(BaseModel):
     autonomia_nominal_km: float
     autonomia_ajustada_km: float
@@ -239,6 +259,7 @@ class RotaAlternativa(BaseModel):
     altimetria: AltimetriaInfo
     autonomia: AutonomiaInfo
     custos: CustosInfo
+    postos: list[PostoCombustivel] = Field(default_factory=list)
 
 
 class MapaRotaResponse(BaseModel):

@@ -22,6 +22,9 @@ import logging
 import time
 import traceback
 from collections.abc import Awaitable
+
+import httpx
+
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote
@@ -57,11 +60,13 @@ from app.schemas.roteiros import (
     VisitaUpdate,
 )
 
+# Serviços
+from app.services import incidentes_service, storage_service
+from app.services.anp_service import buscar_postos_proximos, obter_cadastro_anp
 from app.services.custos_service import calcular_custos
 from app.services.gemini_service import eventos_sse_guia, gerar_guia_ia_async
 from app.services.gpx_service import gerar_gpx, nome_arquivo_gpx
 from app.services.postos_service import calcular_paradas
-from app.services import incidentes_service, storage_service
 from app.services.altimetria_service import (
     altimetria_fallback,
     montar_altimetria,
@@ -351,6 +356,14 @@ async def mapa_rota(
         *(consultar_altimetria(client, r, payload.veiculo.propulsao) for r in rotas)
     )
     mais_curta = min(range(len(rotas)), key=lambda i: rotas[i].distancia_km)
+    postos_anp = []
+    try:
+        postos_anp = await obter_cadastro_anp(client)
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        logger.exception(
+            "Não foi possível consultar os postos da ANP. "
+            "O mapa continuará sem os marcadores de postos."
+        )
 
     alternativas: list[RotaAlternativa] = []
     for i, (rota, alt) in enumerate(zip(rotas, altimetrias, strict=True)):
@@ -373,6 +386,10 @@ async def mapa_rota(
                     payload.destino_uf,
                     payload.passageiros,
                     alt.penalizacao_pct,
+                ),
+                postos=buscar_postos_proximos(
+                    postos_anp,
+                    rota.geometria,
                 ),
             )
         )

@@ -1245,6 +1245,10 @@ select:focus-visible,
   background: #ea580c;
 }
 
+.dot-station {
+  background: #0f766e;
+}
+
 .custom-leaflet-marker {
   background: transparent;
   border: none;

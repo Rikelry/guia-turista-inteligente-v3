@@ -187,6 +187,25 @@ export interface RotaAlternativa {
   altimetria: AltimetriaInfo;
   autonomia: AutonomiaInfo;
   custos: CustosInfo;
+  postos: PostoCombustivel[];
+}
+
+export interface PostoCombustivel {
+  cnpj: string;
+  razao_social: string;
+  nome_fantasia: string | null;
+  bandeira: string | null;
+  endereco: string | null;
+  municipio: string | null;
+  uf: UfBrasil;
+  lat: number;
+  lon: number;
+  status_sigaf: string | null;
+  validacao_geografica: string | null;
+  data_publicacao: string | null;
+  combustiveis: string[];
+  distancia_rota_km: number;
+  avaliacao: number | null;
 }
 
 export interface MapaRotaResponse {
