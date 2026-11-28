@@ -14,6 +14,9 @@ from app.core.config import carregar_estados
 
 EstiloViagem = Literal["cultural", "gastronomico", "ecoturismo", "familia", "romantico"]
 PreferenciaRota = Literal["rapida", "economica"]
+RitmoViagem = Literal["tranquilo", "moderado", "intenso"]
+CompanhiaViagem = Literal["sozinho", "casal", "familia", "amigos"]
+PreferenciaAlimentar = Literal["nenhuma", "vegetariana", "vegana", "outra"]
 
 Latitude = Annotated[float, Field(ge=-90, le=90)]
 Longitude = Annotated[float, Field(ge=-180, le=180)]
@@ -80,6 +83,11 @@ class RoteiroRequest(_Estrito):
     destino_uf: str
     dias_estadia: Annotated[int, Field(ge=1, le=5)] = 3
     estilo_viagem: EstiloViagem = "cultural"
+    ritmo_viagem: RitmoViagem = "moderado"
+    companhia: CompanhiaViagem = "sozinho"
+    preferencia_alimentar: PreferenciaAlimentar = "nenhuma"
+    restricoes_alimentares: Annotated[str, Field(max_length=160)] | None = None
+    idioma: Annotated[str, Field(min_length=2, max_length=20)] | None = None
     preferencia_rota: PreferenciaRota = "rapida"
     passageiros: Annotated[int, Field(ge=1, le=8)] = 1
     veiculo: Veiculo = Field(default_factory=VeiculoCombustao)
@@ -148,9 +156,14 @@ class GuiaStreamRequest(_Estrito):
     destino: Annotated[str, Field(min_length=2, max_length=120)]
     dias_estadia: Annotated[int, Field(ge=1, le=5)] = 3
     estilo_viagem: EstiloViagem = "cultural"
+    ritmo_viagem: RitmoViagem = "moderado"
+    companhia: CompanhiaViagem = "sozinho"
+    preferencia_alimentar: PreferenciaAlimentar = "nenhuma"
+    restricoes_alimentares: Annotated[str, Field(max_length=160)] | None = None
+    idioma: Annotated[str, Field(min_length=2, max_length=20)] | None = None
     clima_info: ClimaInfo | None = None
-    atrativos: Annotated[list[Annotated[str, Field(max_length=120)]], Field(max_length=10)] = []
-    gastronomia: Annotated[list[Annotated[str, Field(max_length=120)]], Field(max_length=10)] = []
+    atrativos: Annotated[list[Annotated[str, Field(max_length=120)]], Field(max_length=10)] = Field(default_factory=list)
+    gastronomia: Annotated[list[Annotated[str, Field(max_length=120)]], Field(max_length=10)] = Field(default_factory=list)
 
 
 class VisitaUpdate(_Estrito):
@@ -286,6 +299,11 @@ class RoteiroResponse(BaseModel):
     destino: LocalInfo
     dias_estadia: int
     estilo_viagem: EstiloViagem
+    ritmo_viagem: RitmoViagem = "moderado"
+    companhia: CompanhiaViagem = "sozinho"
+    preferencia_alimentar: PreferenciaAlimentar = "nenhuma"
+    restricoes_alimentares: str | None = None
+    idioma: str = "pt-BR"
     clima: ClimaInfo
     rota: RotaInfo
     guia: str

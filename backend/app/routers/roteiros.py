@@ -64,7 +64,12 @@ from app.schemas.roteiros import (
 from app.services import incidentes_service, storage_service
 from app.services.anp_service import buscar_postos_proximos, obter_cadastro_anp
 from app.services.custos_service import calcular_custos
-from app.services.gemini_service import eventos_sse_guia, gerar_guia_ia_async
+from app.services.gemini_service import (
+    eventos_sse_guia,
+    gerar_guia_ia_async,
+    selecionar_idioma,
+    selecionar_idioma_cabecalho,
+)
 from app.services.gpx_service import gerar_gpx, nome_arquivo_gpx
 from app.services.postos_service import calcular_paradas
 from app.services.altimetria_service import (
@@ -208,6 +213,14 @@ async def planejar_roteiro(
     try:
         await _abortar_se_desconectado(request)
 
+        idioma = (
+            selecionar_idioma(payload.idioma)
+            if payload.idioma
+            else selecionar_idioma_cabecalho(
+                request.headers.get("accept-language")
+            )
+        )
+
         # Estágio 1: geocodificação paralela de origem e destino.
         ((origem, fb_origem), t_origem), ((destino, fb_destino), t_destino) = await asyncio.gather(
             _executar_cronometrado(geocodificar(client, payload.origem_cidade, payload.origem_uf)),
@@ -236,6 +249,11 @@ async def planejar_roteiro(
                 clima_info=clima,
                 atrativos=[a.nome for a in atrativos],
                 gastronomia=[g.nome for g in gastronomia],
+                idioma=idioma,
+                ritmo_viagem=payload.ritmo_viagem,
+                companhia=payload.companhia,
+                preferencia_alimentar=payload.preferencia_alimentar,
+                restricoes_alimentares=payload.restricoes_alimentares,
             )
         )
         await _abortar_se_desconectado(request)
@@ -294,6 +312,11 @@ async def planejar_roteiro(
         destino=destino,
         dias_estadia=payload.dias_estadia,
         estilo_viagem=payload.estilo_viagem,
+        ritmo_viagem=payload.ritmo_viagem,
+        companhia=payload.companhia,
+        preferencia_alimentar=payload.preferencia_alimentar,
+        restricoes_alimentares=payload.restricoes_alimentares,
+        idioma=idioma,
         clima=clima,
         rota=para_rota_info(rota_calc) if rota_calc else rota_fallback(),
         guia=guia,
@@ -424,6 +447,17 @@ async def stream_guia_ia(payload: GuiaStreamRequest, request: Request) -> Stream
             clima_info=payload.clima_info,
             atrativos=payload.atrativos,
             gastronomia=payload.gastronomia,
+            idioma=(
+                selecionar_idioma(payload.idioma)
+                if payload.idioma
+                else selecionar_idioma_cabecalho(
+                    request.headers.get("accept-language")
+                )
+            ),
+            ritmo_viagem=payload.ritmo_viagem,
+            companhia=payload.companhia,
+            preferencia_alimentar=payload.preferencia_alimentar,
+            restricoes_alimentares=payload.restricoes_alimentares,
         ),
         media_type="text/event-stream",
         headers={
