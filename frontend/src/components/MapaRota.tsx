@@ -5,6 +5,7 @@ import {
   DEFAULT_VEICULO_ELETRICO,
   formatarDuracao,
   formatarMoedaBRL,
+  type PostoCombustivel,
   type MapaRotaResponse,
   type Propulsao,
   type RotaAlternativa,
@@ -31,6 +32,55 @@ function criarIconeMarcador(cor: string, texto: string): L.DivIcon {
     iconSize: [30, 30],
     iconAnchor: [15, 15],
   });
+}
+
+export function criarPopupPosto(posto: PostoCombustivel): HTMLElement {
+  const container = document.createElement("div");
+
+  const adicionarCampo = (rotulo: string, valor: string | null | undefined): void => {
+    if (!valor) return;
+
+    const linha = document.createElement("p");
+    const titulo = document.createElement("strong");
+
+    titulo.textContent = `${rotulo}: `;
+    linha.append(titulo, document.createTextNode(valor));
+    container.append(linha);
+  };
+
+  adicionarCampo("Posto", posto.nome_fantasia || posto.razao_social);
+
+  if (posto.nome_fantasia) {
+    adicionarCampo("Razão social", posto.razao_social);
+  }
+  adicionarCampo("CNPJ", posto.cnpj);
+  adicionarCampo("Bandeira", posto.bandeira);
+  adicionarCampo("Endereço", posto.endereco);
+  adicionarCampo(
+    "Localização",
+    [posto.municipio, posto.uf].filter(Boolean).join(" - "),
+  );
+  adicionarCampo("Status SIGAF", posto.status_sigaf);
+  adicionarCampo("Validação geográfica", posto.validacao_geografica);
+  adicionarCampo(
+    "Autorização publicada",
+    posto.data_publicacao
+      ? new Date(`${posto.data_publicacao}T00:00:00`).toLocaleDateString("pt-BR")
+      : null,
+  );
+  adicionarCampo(
+    "Combustíveis",
+    posto.combustiveis.length > 0
+      ? posto.combustiveis.join(", ")
+      : "Não informados",
+  );
+  adicionarCampo("Distância da rota", `${posto.distancia_rota_km.toFixed(2)} km`);
+  adicionarCampo(
+    "Avaliação",
+    posto.avaliacao !== null ? `${posto.avaliacao.toFixed(1)}/5` : "Não informada",
+  );
+
+  return container;
 }
 
 function classificarTerreno(penalizacaoPct: number): {
@@ -199,6 +249,20 @@ export function MapaRota({
             `<strong>Parada #${parada.ordem} (${tipoLabel})</strong><br/>Km ${parada.km.toFixed(1)} · Reserva ao chegar: ${parada.nivel_chegada_pct.toFixed(0)}%`,
           )
           .addTo(group);
+        boundsCoords.push(coord);
+      }
+    }
+
+    if (rotaAtiva?.postos) {
+      for (const posto of rotaAtiva.postos) {
+        const coord: [number, number] = [posto.lat, posto.lon];
+
+        L.marker(coord, {
+          icon: criarIconeMarcador("#0f766e", "P"),
+        })
+          .bindPopup(criarPopupPosto(posto))
+          .addTo(group);
+
         boundsCoords.push(coord);
       }
     }
@@ -435,6 +499,9 @@ export function MapaRota({
           </span>
           <span>
             <i className="legend-dot dot-stop" /> Parada
+          </span>
+          <span>
+            <i className="legend-dot dot-station" /> Posto ANP
           </span>
         </div>
       </div>
